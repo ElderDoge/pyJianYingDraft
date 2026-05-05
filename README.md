@@ -60,7 +60,7 @@
 - ☑️ 文本的[关键帧](#关键帧)以及[动画](#添加片段动画)
 - ☑️ 文字描边、背景和阴影
 - ☑️ 文字气泡效果和花字效果[(示例代码)](demo.py)
-- ☑️ 文本[自动换行](#文本自动换行)，支持设置最大行宽
+- ☑️ 文本[自动换行](#文本自动换行)，支持设置最大行宽和固定文字框尺寸
 - ☑️ [导入`.srt`文件](#导入字幕)生成字幕并批量设置格式
 
 # 安装
@@ -645,6 +645,24 @@ seg2 = draft.TextSegment("这是一段很长的文本内容，当超过设定的
                           style=TextStyle(size=5.0,
                                           auto_wrapping=True,      # 启用自动换行
                                           max_line_width=0.7))     # 最大行宽占屏幕70%
+```
+
+若需要复现剪映5.9中的固定文字框尺寸，可显式传入`fixed_width`或`fixed_height`。这些字段会直接写入草稿，不会根据横排/竖排自动推断；未设置时默认均为`-1.0`。
+
+```python
+# 横排固定宽度文字框
+seg3 = draft.TextSegment("固定宽度自动换行文本",
+                         trange("0s", "10s"),
+                         style=TextStyle(auto_wrapping=True,
+                                         align=1,
+                                         fixed_width=669.3977451324463))
+
+# 竖排固定高度文字框，align可直接传入剪映草稿中的原始整数值
+seg4 = draft.TextSegment("竖排固定高度文本",
+                         trange("0s", "10s"),
+                         style=TextStyle(vertical=True,
+                                         align=4,
+                                         fixed_height=619.6528823997663))
 ```
 
 #### 导入字幕

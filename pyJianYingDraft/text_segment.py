@@ -32,8 +32,8 @@ class TextStyle:
     alpha: float
     """字体不透明度"""
 
-    align: Literal[0, 1, 2]
-    """对齐方式"""
+    align: int
+    """对齐方式, 直接透传剪映草稿中的原始整数值"""
     vertical: bool
     """是否为竖排文本"""
 
@@ -46,12 +46,22 @@ class TextStyle:
     """是否自动换行"""
     max_line_width: float
     """最大行宽, 取值范围为[0, 1]"""
+    fixed_width: float
+    """固定文字框宽度, 由调用方显式传入"""
+    fixed_height: float
+    """固定文字框高度, 由调用方显式传入"""
+    line_feed: int
+    """换行模式, 直接透传剪映草稿中的原始整数值"""
+    force_apply_line_max_width: bool
+    """是否强制应用最大行宽"""
 
     def __init__(self, *, size: float = 8.0, bold: bool = False, italic: bool = False, underline: bool = False,
                  color: Tuple[float, float, float] = (1.0, 1.0, 1.0), alpha: float = 1.0,
-                 align: Literal[0, 1, 2] = 0, vertical: bool = False,
+                 align: int = 0, vertical: bool = False,
                  letter_spacing: int = 0, line_spacing: int = 0,
-                 auto_wrapping: bool = False, max_line_width: float = 0.82):
+                 auto_wrapping: bool = False, max_line_width: float = 0.82,
+                 fixed_width: float = -1.0, fixed_height: float = -1.0,
+                 line_feed: int = 1, force_apply_line_max_width: bool = False):
         """
         Args:
             size (`float`, optional): 字体大小, 默认为8.0
@@ -60,12 +70,16 @@ class TextStyle:
             underline (`bool`, optional): 是否加下划线, 默认为否
             color (`Tuple[float, float, float]`, optional): 字体颜色, RGB三元组, 取值范围为[0, 1], 默认为白色
             alpha (`float`, optional): 字体不透明度, 取值范围[0, 1], 默认不透明
-            align (`int`, optional): 对齐方式, 0: 左对齐, 1: 居中, 2: 右对齐, 默认为左对齐
+            align (`int`, optional): 对齐方式, 直接透传剪映草稿中的原始整数值, 默认为0
             vertical (`bool`, optional): 是否为竖排文本, 默认为否
             letter_spacing (`int`, optional): 字符间距, 定义与剪映中一致, 默认为0
             line_spacing (`int`, optional): 行间距, 定义与剪映中一致, 默认为0
             auto_wrapping (`bool`, optional): 是否自动换行, 默认关闭
             max_line_width (`float`, optional): 每行最大行宽占屏幕宽度比例, 取值范围为[0, 1], 默认为0.82
+            fixed_width (`float`, optional): 固定文字框宽度, 由调用方显式传入, 默认为-1.0
+            fixed_height (`float`, optional): 固定文字框高度, 由调用方显式传入, 默认为-1.0
+            line_feed (`int`, optional): 换行模式, 直接透传剪映草稿中的原始整数值, 默认为1
+            force_apply_line_max_width (`bool`, optional): 是否强制应用最大行宽, 默认为False
         """
         self.size = size
         self.bold = bold
@@ -83,6 +97,10 @@ class TextStyle:
 
         self.auto_wrapping = auto_wrapping
         self.max_line_width = max_line_width
+        self.fixed_width = fixed_width
+        self.fixed_height = fixed_height
+        self.line_feed = line_feed
+        self.force_apply_line_max_width = force_apply_line_max_width
 
 class TextBorder:
     """文本描边的参数"""
@@ -562,9 +580,11 @@ class TextSegment(VisualSegment):
             "letter_spacing": self.style.letter_spacing * 0.05,
             "line_spacing": 0.02 + self.style.line_spacing * 0.05,
 
-            "line_feed": 1,
+            "line_feed": self.style.line_feed,
             "line_max_width": self.style.max_line_width,
-            "force_apply_line_max_width": False,
+            "force_apply_line_max_width": self.style.force_apply_line_max_width,
+            "fixed_width": self.style.fixed_width,
+            "fixed_height": self.style.fixed_height,
 
             "check_flag": check_flag,
 
