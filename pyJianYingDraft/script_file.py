@@ -3,7 +3,7 @@ import json
 import math
 from copy import deepcopy
 
-from typing import Optional, Literal, Union, overload
+from typing import Optional, Literal, Union, overload, Callable
 from typing import Type, Dict, List, Any
 
 from . import util
@@ -16,7 +16,7 @@ from .segment import BaseSegment, Speed, ClipSettings
 from .audio_segment import AudioSegment, AudioFade, AudioEffect
 from .video_segment import VideoSegment, StickerSegment, SegmentAnimations, VideoEffect, Transition, Filter, BackgroundFilling, MixMode
 from .effect_segment import EffectSegment, FilterSegment
-from .text_segment import TextSegment, TextStyle, TextBubble
+from .text_segment import TextSegment, TextStyle, TextBubble, TextStyleRange
 from .track import TrackType, BaseTrack, Track
 
 from .metadata import VideoSceneEffectType, VideoCharacterEffectType, FilterType
@@ -363,6 +363,9 @@ class ScriptFile:
             # 花字效果
             if segment.effect is not None:
                 self.materials.filters.append(segment.effect)
+            for style_range in segment.style_ranges:
+                if style_range.effect is not None:
+                    self.materials.filters.append(style_range.effect)
             # 字体样式
             self.materials.texts.append(segment.export_material())
 
@@ -430,6 +433,7 @@ class ScriptFile:
     def import_srt(self, srt_path: str, track_name: str, *,
                    time_offset: Union[str, float] = 0.0,
                    style_reference: Optional[TextSegment] = None,
+                   style_ranges_resolver: Optional[Callable[[str, int], List[TextStyleRange]]] = None,
                    text_style: TextStyle = TextStyle(size=5, align=1, auto_wrapping=True),
                    clip_settings: Optional[ClipSettings] = ClipSettings(transform_y=-0.8)) -> "ScriptFile":
         """从SRT文件中导入字幕, 支持传入一个`TextSegment`作为样式参考
@@ -440,6 +444,8 @@ class ScriptFile:
             srt_path (`str`): SRT文件路径
             track_name (`str`): 导入到的文本轨道名称, 若不存在则自动创建
             style_reference (`TextSegment`, optional): 作为样式参考的文本片段, 若提供则使用其样式.
+            style_ranges_resolver (`Callable[[str, int], List[TextStyleRange]]`, optional):
+                局部样式回调, 参数为字幕文本和从0开始的导入顺序下标, 返回该条字幕的局部样式范围列表.
             time_offset (`Union[str, float]`, optional): 字幕整体时间偏移, 单位为微秒, 默认为0.
             text_style (`TextStyle`, optional): 字幕样式, 默认模仿剪映导入字幕时的样式, 会被`style_reference`覆盖.
             clip_settings (`ClipSettings`, optional): 图像调节设置, 默认模仿剪映导入字幕时的设置, 会覆盖`style_reference`的设置除非指定为`None`.
@@ -458,14 +464,20 @@ class ScriptFile:
         with open(srt_path, "r", encoding="utf-8-sig") as srt_file:
             lines = srt_file.readlines()
 
+        subtitle_index = 0
+
         def __add_text_segment(text: str, t_range: Timerange) -> None:
+            nonlocal subtitle_index
             if style_reference:
                 seg = TextSegment.create_from_template(text, t_range, style_reference)
                 if clip_settings is not None:
                     seg.clip_settings = deepcopy(clip_settings)
             else:
                 seg = TextSegment(text, t_range, style=text_style, clip_settings=clip_settings)
+            if style_ranges_resolver is not None:
+                seg.add_style_ranges(style_ranges_resolver(text, subtitle_index))
             self.add_segment(seg, track_name)
+            subtitle_index += 1
 
         index = 0
         text: str = ""

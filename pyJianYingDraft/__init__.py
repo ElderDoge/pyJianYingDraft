@@ -8,7 +8,7 @@ from .time_util import Timerange
 from .audio_segment import AudioSegment
 from .video_segment import VideoSegment, StickerSegment, ClipSettings
 from .effect_segment import EffectSegment, FilterSegment
-from .text_segment import TextSegment, TextStyle, TextBorder, TextBackground, TextShadow
+from .text_segment import TextSegment, TextStyle, TextStyleRange, TextBorder, TextBackground, TextShadow
 
 from .metadata import FontType
 from .metadata import MaskType
@@ -218,6 +218,7 @@ __all__ = [
     "FilterSegment",
     "TextSegment",
     "TextStyle",
+    "TextStyleRange",
     "TextBorder",
     "TextBackground",
     "TextShadow",

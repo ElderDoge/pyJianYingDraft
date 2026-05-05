@@ -4,7 +4,7 @@ import json
 import uuid
 from copy import deepcopy
 
-from typing import Dict, Tuple, Any
+from typing import Dict, Tuple, Any, List
 from typing import Union, Optional, Literal
 
 from .time_util import Timerange, tim
@@ -252,6 +252,58 @@ class TextShadow:
             "angle": self.angle
         }
 
+class TextStyleRange:
+    """文本局部样式范围, 范围采用Python切片语义[start, end)"""
+
+    start: int
+    """局部样式起始字符下标, 包含该位置"""
+    end: int
+    """局部样式结束字符下标, 不包含该位置"""
+
+    style: Optional[TextStyle]
+    """局部文本样式, None表示沿用整段默认样式"""
+    font: Optional[EffectMeta]
+    """局部字体, None表示沿用整段默认字体"""
+    border: Optional[TextBorder]
+    """局部描边, None表示沿用整段默认描边"""
+    shadow: Optional[TextShadow]
+    """局部阴影, None表示沿用整段默认阴影"""
+    effect: Optional[TextEffect]
+    """局部花字, None表示沿用整段默认花字"""
+
+    def __init__(self, start: int, end: int, *,
+                 style: Optional[TextStyle] = None,
+                 font: Optional[FontType] = None,
+                 border: Optional[TextBorder] = None,
+                 shadow: Optional[TextShadow] = None,
+                 effect_id: Optional[str] = None,
+                 bubble: Optional[TextBubble] = None):
+        """
+        Args:
+            start (`int`): 局部样式起始字符下标, 包含该位置.
+            end (`int`): 局部样式结束字符下标, 不包含该位置.
+            style (`TextStyle`, optional): 局部文本样式, 仅使用字号/颜色/粗体/斜体/下划线字段.
+            font (`FontType`, optional): 局部字体.
+            border (`TextBorder`, optional): 局部描边.
+            shadow (`TextShadow`, optional): 局部阴影.
+            effect_id (`str`, optional): 局部花字effect_id, 同时作为resource_id.
+            bubble (`TextBubble`, optional): 不支持局部气泡, 传入时直接报错.
+        """
+        if bubble is not None:
+            raise ValueError("局部样式范围不支持文本气泡")
+        if start < 0 or end < 0:
+            raise ValueError("局部样式范围不能为负数: [%d, %d)" % (start, end))
+        if start >= end:
+            raise ValueError("局部样式范围必须满足start < end: [%d, %d)" % (start, end))
+
+        self.start = start
+        self.end = end
+        self.style = style
+        self.font = font.value if font else None
+        self.border = border
+        self.shadow = shadow
+        self.effect = TextEffect(effect_id, effect_id) if effect_id else None
+
 class TextSegment(VisualSegment):
     """文本片段类, 目前仅支持设置基本的字体样式"""
 
@@ -273,6 +325,8 @@ class TextSegment(VisualSegment):
     """文本气泡效果, 在放入轨道时加入素材列表中"""
     effect: Optional[TextEffect]
     """文本花字效果, 在放入轨道时加入素材列表中, 目前仅支持一部分花字效果"""
+    style_ranges: List[TextStyleRange]
+    """局部文本样式范围列表"""
 
     def __init__(self, text: str, timerange: Timerange, *,
                  font: Optional[FontType] = None,
@@ -304,6 +358,7 @@ class TextSegment(VisualSegment):
 
         self.bubble = None
         self.effect = None
+        self.style_ranges = []
 
     @classmethod
     def create_from_template(cls, text: str, timerange: Timerange, template: "TextSegment") -> "TextSegment":
@@ -324,6 +379,50 @@ class TextSegment(VisualSegment):
             new_segment.add_effect(template.effect.effect_id)
 
         return new_segment
+
+    def add_style_range(self, start: int, end: int, *,
+                        style: Optional[TextStyle] = None,
+                        font: Optional[FontType] = None,
+                        border: Optional[TextBorder] = None,
+                        shadow: Optional[TextShadow] = None,
+                        effect_id: Optional[str] = None,
+                        bubble: Optional[TextBubble] = None) -> "TextSegment":
+        """为指定字符范围添加局部样式
+
+        局部范围采用Python切片语义[start, end), 必须位于文本长度范围内且不能与已有局部范围重叠.
+
+        Args:
+            start (`int`): 局部样式起始字符下标, 包含该位置.
+            end (`int`): 局部样式结束字符下标, 不包含该位置.
+            style (`TextStyle`, optional): 局部文本样式, 仅使用字号/颜色/粗体/斜体/下划线字段.
+            font (`FontType`, optional): 局部字体.
+            border (`TextBorder`, optional): 局部描边.
+            shadow (`TextShadow`, optional): 局部阴影.
+            effect_id (`str`, optional): 局部花字effect_id, 同时作为resource_id.
+            bubble (`TextBubble`, optional): 不支持局部气泡, 传入时直接报错.
+        """
+        return self.add_style_range_obj(TextStyleRange(start, end, style=style, font=font, border=border,
+                                                       shadow=shadow, effect_id=effect_id, bubble=bubble))
+
+    def add_style_range_obj(self, style_range: TextStyleRange) -> "TextSegment":
+        """添加一个`TextStyleRange`对象"""
+        if style_range.end > len(self.text):
+            raise ValueError("局部样式范围越界: [%d, %d), 文本长度为%d" % (style_range.start, style_range.end, len(self.text)))
+        for existing in self.style_ranges:
+            if style_range.start < existing.end and existing.start < style_range.end:
+                raise ValueError("局部样式范围重叠: [%d, %d) 与 [%d, %d)" %
+                                 (style_range.start, style_range.end, existing.start, existing.end))
+        self.style_ranges.append(style_range)
+        self.style_ranges.sort(key=lambda item: item.start)
+        if style_range.effect is not None:
+            self.extra_material_refs.append(style_range.effect.global_id)
+        return self
+
+    def add_style_ranges(self, style_ranges: List[TextStyleRange]) -> "TextSegment":
+        """批量添加局部样式范围"""
+        for style_range in style_ranges:
+            self.add_style_range_obj(style_range)
+        return self
 
     def add_animation(self, animation_type: Union[TextIntro, TextOutro, TextLoopAnim],
                       duration: Union[str, float, None] = None) -> "TextSegment":
@@ -385,48 +484,74 @@ class TextSegment(VisualSegment):
         """与此文本片段联系的素材, 以此不再单独定义Text_material类"""
         # 叠加各类效果的flag
         check_flag: int = 7
-        if self.border:
+        if self.border or any(style_range.border for style_range in self.style_ranges):
             check_flag |= 8
         if self.background:
             check_flag |= 16
-        if self.shadow:
+        if self.shadow or any(style_range.shadow for style_range in self.style_ranges):
             check_flag |= 32
 
-        content_json = {
-            "styles": [
-                {
-                    "fill": {
-                        "alpha": 1.0,
-                        "content": {
-                            "render_type": "solid",
-                            "solid": {
-                                "alpha": 1.0,
-                                "color": list(self.style.color)
-                            }
+        def __style_json(start: int, end: int, *, style: TextStyle, font: Optional[EffectMeta],
+                         border: Optional[TextBorder], shadow: Optional[TextShadow],
+                         effect: Optional[TextEffect]) -> Dict[str, Any]:
+            style_json = {
+                "fill": {
+                    "alpha": 1.0,
+                    "content": {
+                        "render_type": "solid",
+                        "solid": {
+                            "alpha": 1.0,
+                            "color": list(style.color)
                         }
-                    },
-                    "range": [0, len(self.text)],
-                    "size": self.style.size,
-                    "bold": self.style.bold,
-                    "italic": self.style.italic,
-                    "underline": self.style.underline,
-                    "strokes": [self.border.export_json()] if self.border else []
+                    }
+                },
+                "range": [start, end],
+                "size": style.size,
+                "bold": style.bold,
+                "italic": style.italic,
+                "underline": style.underline,
+                "strokes": [border.export_json()] if border else []
+            }
+            if font:
+                style_json["font"] = {
+                    "id": font.resource_id,
+                    "path": "D:"  # 并不会真正在此处放置字体文件
                 }
-            ],
+            if effect:
+                style_json["effectStyle"] = {
+                    "id": effect.effect_id,
+                    "path": "C:"  # 并不会真正在此处放置素材文件
+                }
+            if shadow:
+                style_json["shadows"] = [shadow.export_json()]
+            return style_json
+
+        def __default_style_json(start: int, end: int) -> Dict[str, Any]:
+            return __style_json(start, end, style=self.style, font=self.font, border=self.border,
+                                shadow=self.shadow, effect=self.effect)
+
+        styles: List[Dict[str, Any]] = []
+        if self.style_ranges:
+            cursor = 0
+            for style_range in self.style_ranges:
+                if cursor < style_range.start:
+                    styles.append(__default_style_json(cursor, style_range.start))
+                styles.append(__style_json(style_range.start, style_range.end,
+                                           style=style_range.style or self.style,
+                                           font=style_range.font or self.font,
+                                           border=style_range.border if style_range.border is not None else self.border,
+                                           shadow=style_range.shadow if style_range.shadow is not None else self.shadow,
+                                           effect=style_range.effect if style_range.effect is not None else self.effect))
+                cursor = style_range.end
+            if cursor < len(self.text):
+                styles.append(__default_style_json(cursor, len(self.text)))
+        else:
+            styles.append(__default_style_json(0, len(self.text)))
+
+        content_json = {
+            "styles": styles,
             "text": self.text
         }
-        if self.font:
-            content_json["styles"][0]["font"] = {
-                "id": self.font.resource_id,
-                "path": "D:"  # 并不会真正在此处放置字体文件
-            }
-        if self.effect:
-            content_json["styles"][0]["effectStyle"] = {
-                "id": self.effect.effect_id,
-                "path": "C:"  # 并不会真正在此处放置素材文件
-            }
-        if self.shadow:
-            content_json["styles"][0]["shadows"] = [self.shadow.export_json()]
 
         ret = {
             "id": self.material_id,

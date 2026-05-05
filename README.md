@@ -625,6 +625,15 @@ seg1 = draft.TextSegment("Subtitle", trange("0s", "10s"),
 
 更具体的参数说明可参见`TextStyle`和`ClipSettings`的构造函数。
 
+同一段文本中的局部字符也可以单独设置样式，范围采用Python切片语义`[start, end)`：
+```python
+seg1.add_style_range(0, 3, style=TextStyle(size=8.0, color=(1.0, 0.2, 0.2), bold=True))
+seg1.add_style_range(3, 8, font=FontType.文轩体,
+                     border=draft.TextBorder(color=(0.0, 0.0, 0.0), width=35.0),
+                     shadow=draft.TextShadow(alpha=0.5),
+                     effect_id="text_effect_id")
+```
+
 #### 文本自动换行
 文本片段支持自动换行功能，可以通过`TextStyle`的`auto_wrapping`和`max_line_width`参数来控制：
 
@@ -665,4 +674,13 @@ script.import_srt("subtitle.srt", track_name="subtitle", style_reference=seg1)  
 
 # 默认不会采用`style_reference`片段中的`clip_settings`设置，如果需要的话请显式传入`clip_settings=None`
 script.import_srt("subtitle.srt", track_name="subtitle", style_reference=seg1, clip_settings=None)  # 相当于clip_settings=seg1.clip_settings
+
+# 可以通过回调为每条字幕生成局部样式范围，回调参数为字幕文本和从0开始的字幕序号
+def subtitle_style_ranges(text: str, index: int):
+    if "重点" in text:
+        start = text.index("重点")
+        return [draft.TextStyleRange(start, start + 2, style=draft.TextStyle(color=(1.0, 0.0, 0.0), bold=True))]
+    return []
+
+script.import_srt("subtitle.srt", track_name="subtitle", style_ranges_resolver=subtitle_style_ranges)
 ```
