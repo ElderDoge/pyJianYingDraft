@@ -372,6 +372,16 @@ script.add_segment(seg3, "3")
 script.dump("*你的草稿工程文件夹*/draft_content.json")
 ```
 
+#### 停用片段
+所有新建片段默认启用。如果需要让片段在剪映时间线上处于“停用”状态，可以在创建片段后设置`visible=False`：
+```python
+segment = draft.VideoSegment(video_path, trange("0s", "4s"))
+segment.visible = False
+script.add_segment(segment)
+```
+
+停用不会删除片段，也不会改变它的时间线位置、素材引用或参数；打开草稿后，该片段仍会在时间线上以半透明状态显示。`visible`是片段公共属性，视频、音频、文本、贴纸等新建片段都可以使用。导入模板中的已有片段仍保持原草稿数据。
+
 #### 多轨道操作
 目前`ScriptFile.add_track`方法已支持创建多个同类型轨道，并支持自定义其顺序：
 ```python

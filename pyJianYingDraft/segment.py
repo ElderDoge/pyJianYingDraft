@@ -16,6 +16,8 @@ class BaseSegment:
     """使用的素材id"""
     target_timerange: Timerange
     """片段在轨道上的时间范围"""
+    visible: bool
+    """是否在剪映时间线上启用"""
 
     common_keyframes: List[KeyframeList]
     """各属性的关键帧列表"""
@@ -24,6 +26,7 @@ class BaseSegment:
         self.segment_id = uuid.uuid4().hex
         self.material_id = material_id
         self.target_timerange = target_timerange
+        self.visible = True
 
         self.common_keyframes = []
 
@@ -66,7 +69,7 @@ class BaseSegment:
             "reverse": False,
             "track_attribute": 0,
             "track_render_index": 0,
-            "visible": True,
+            "visible": self.visible,
             # 写入自定义字段
             "id": self.segment_id,
             "material_id": self.material_id,

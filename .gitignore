@@ -1,15 +1,20 @@
 __pycache__
 ignored
 tools/
+tests/
 
 build/
 dist/
 *.egg-info/
 
 CLAUDE.md
+.claude
 .vscode/
 .idea/
 .DS_Store
 
 .venv/
 venv/
+.ace-tool/
+.codex/
+openspec/
