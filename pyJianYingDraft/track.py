@@ -13,14 +13,14 @@ from .segment import BaseSegment
 from .video_segment import VideoSegment, StickerSegment
 from .audio_segment import AudioSegment
 from .text_segment import TextSegment
-from .effect_segment import EffectSegment, FilterSegment
+from .effect_segment import EffectSegment, FilterSegment, AdjustSegment
 
 @dataclass
 class Track_meta:
     """与轨道类型关联的轨道元数据"""
 
     segment_type: Union[Type[VideoSegment], Type[AudioSegment],
-                        Type[EffectSegment], Type[FilterSegment],
+                        Type[EffectSegment], Type[FilterSegment], Type[AdjustSegment],
                         Type[TextSegment], Type[StickerSegment], None]
     """与轨道关联的片段类型"""
     render_index: int
@@ -41,8 +41,8 @@ class TrackType(Enum):
     sticker = Track_meta(StickerSegment, 14000, False)
     text = Track_meta(TextSegment, 15000, True)  # 原本是14000, 避免与sticker冲突改为15000
 
-    adjust = Track_meta(None, 0, False)
-    """仅供导入时使用, 不要尝试新建此类型的轨道"""
+    adjust = Track_meta(AdjustSegment, 0, False)
+    """调节轨, 当前仅支持承载智能调色片段"""
 
     @staticmethod
     def from_name(name: str) -> "TrackType":

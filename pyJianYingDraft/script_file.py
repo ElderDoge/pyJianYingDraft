@@ -14,8 +14,8 @@ from .time_util import Timerange, tim, srt_tstamp
 from .local_materials import VideoMaterial, AudioMaterial
 from .segment import BaseSegment, Speed, ClipSettings
 from .audio_segment import AudioSegment, AudioFade, AudioEffect
-from .video_segment import VideoSegment, StickerSegment, SegmentAnimations, VideoEffect, Transition, Filter, BackgroundFilling, MixMode
-from .effect_segment import EffectSegment, FilterSegment
+from .video_segment import VideoSegment, StickerSegment, SegmentAnimations, VideoEffect, Transition, Filter, BackgroundFilling, MixMode, SmartColorAdjust
+from .effect_segment import EffectSegment, FilterSegment, AdjustSegment, AdjustPlaceholder
 from .text_segment import TextSegment, TextStyle, TextBubble, TextStyleRange
 from .track import TrackType, BaseTrack, Track
 
@@ -50,10 +50,14 @@ class ScriptMaterial:
     """转场效果列表"""
     filters: List[Union[Filter, TextBubble]]
     """滤镜/文本花字/文本气泡列表, 导出到`effects`中"""
+    smart_color_adjusts: List[SmartColorAdjust]
+    """智能调色列表, 导出到`effects`中"""
     mix_modes: List[MixMode]
     """混合模式列表, 导出到`effects`中"""
     canvases: List[BackgroundFilling]
     """背景填充列表"""
+    placeholders: List[AdjustPlaceholder]
+    """调节轨占位素材列表, 导出到`placeholders`中"""
 
     def __init__(self):
         self.audios = []
@@ -70,15 +74,17 @@ class ScriptMaterial:
         self.masks = []
         self.transitions = []
         self.filters = []
+        self.smart_color_adjusts = []
         self.mix_modes = []
         self.canvases = []
+        self.placeholders = []
 
     @overload
     def __contains__(self, item: Union[VideoMaterial, AudioMaterial]) -> bool: ...
     @overload
     def __contains__(self, item: Union[AudioFade, AudioEffect]) -> bool: ...
     @overload
-    def __contains__(self, item: Union[SegmentAnimations, VideoEffect, Transition, Filter]) -> bool: ...
+    def __contains__(self, item: Union[SegmentAnimations, VideoEffect, Transition, Filter, SmartColorAdjust]) -> bool: ...
 
     def __contains__(self, item) -> bool:
         if isinstance(item, VideoMaterial):
@@ -97,6 +103,8 @@ class ScriptMaterial:
             return item.global_id in [transition.global_id for transition in self.transitions]
         elif isinstance(item, Filter):
             return item.global_id in [filter_.global_id for filter_ in self.filters]
+        elif isinstance(item, SmartColorAdjust):
+            return item.global_id in [adjust.global_id for adjust in self.smart_color_adjusts]
         elif isinstance(item, MixMode):
             return item.global_id in [mix_mode.global_id for mix_mode in self.mix_modes]
         else:
@@ -116,7 +124,11 @@ class ScriptMaterial:
             "color_curves": [],
             "digital_humans": [],
             "drafts": [],
-            "effects": [_filter.export_json() for _filter in self.filters] + [mix_mode.export_json() for mix_mode in self.mix_modes],
+            "effects": (
+                [_filter.export_json() for _filter in self.filters]
+                + [mix_mode.export_json() for mix_mode in self.mix_modes]
+                + [adjust.export_json() for adjust in self.smart_color_adjusts]
+            ),
             "flowers": [],
             "green_screens": [],
             "handwrites": [],
@@ -129,7 +141,7 @@ class ScriptMaterial:
             "material_animations": [ani.export_json() for ani in self.animations],
             "material_colors": [],
             "multi_language_refs": [],
-            "placeholders": [],
+            "placeholders": [placeholder.export_json() for placeholder in self.placeholders],
             "plugin_effects": [],
             "primary_color_wheels": [],
             "realtime_denoises": [],
@@ -293,12 +305,12 @@ class ScriptFile:
 
         return next(track for track in self.tracks.values() if track.accept_segment_type == segment_type)
 
-    def add_segment(self, segment: Union[VideoSegment, StickerSegment, AudioSegment, TextSegment],
+    def add_segment(self, segment: Union[VideoSegment, StickerSegment, AudioSegment, TextSegment, AdjustSegment],
                     track_name: Optional[str] = None) -> "ScriptFile":
         """向指定轨道中添加一个片段
 
         Args:
-            segment (`VideoSegment`, `StickerSegment`, `AudioSegment`, or `TextSegment`): 要添加的片段
+            segment (`VideoSegment`, `StickerSegment`, `AudioSegment`, `TextSegment` or `AdjustSegment`): 要添加的片段
             track_name (`str`, optional): 添加到的轨道名称. 当此类型的轨道仅有一条时可省略.
 
         Raises:
@@ -340,6 +352,9 @@ class ScriptFile:
             # 背景填充
             if segment.background_filling is not None:
                 self.materials.canvases.append(segment.background_filling)
+            # 智能调色
+            if (segment.smart_color_adjust is not None) and (segment.smart_color_adjust not in self.materials):
+                self.materials.smart_color_adjusts.append(segment.smart_color_adjust)
 
             self.materials.speeds.append(segment.speed)
         elif isinstance(segment, StickerSegment):
@@ -368,6 +383,11 @@ class ScriptFile:
                     self.materials.filters.append(style_range.effect)
             # 字体样式
             self.materials.texts.append(segment.export_material())
+        elif isinstance(segment, AdjustSegment):
+            if segment.smart_color_adjust not in self.materials:
+                self.materials.smart_color_adjusts.append(segment.smart_color_adjust)
+            if segment.placeholder.placeholder_id not in [placeholder.placeholder_id for placeholder in self.materials.placeholders]:
+                self.materials.placeholders.append(segment.placeholder)
 
         # 添加片段素材
         if isinstance(segment, (VideoSegment, AudioSegment)):
@@ -429,6 +449,29 @@ class ScriptFile:
         # 自动添加相关素材
         self.materials.filters.append(segment.material)
         return self
+
+    def add_smart_color_adjust(self, value: float, t_range: Timerange,
+                               track_name: Optional[str] = None,
+                               placeholder_name: str = "调节1") -> "ScriptFile":
+        """向调节轨中添加一个智能调色片段"""
+        if track_name is None:
+            adjust_tracks = [track for track in self.tracks.values() if track.track_type == TrackType.adjust]
+            if len(adjust_tracks) == 0:
+                self.add_track(TrackType.adjust)
+                track_name = TrackType.adjust.name
+            elif len(adjust_tracks) == 1:
+                track_name = adjust_tracks[0].name
+            else:
+                raise NameError("存在多个调节轨, 请指定 track_name")
+        elif track_name not in self.tracks:
+            self.add_track(TrackType.adjust, track_name)
+        elif self.tracks[track_name].track_type != TrackType.adjust:
+            raise TypeError(f"名为 '{track_name}' 的轨道不是调节轨")
+
+        placeholder = AdjustPlaceholder(placeholder_name)
+        smart_color_adjust = SmartColorAdjust(value)
+        segment = AdjustSegment(placeholder, smart_color_adjust, t_range)
+        return self.add_segment(segment, track_name)
 
     def import_srt(self, srt_path: str, track_name: str, *,
                    time_offset: Union[str, float] = 0.0,

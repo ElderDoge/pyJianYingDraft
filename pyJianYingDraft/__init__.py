@@ -6,8 +6,8 @@ from .keyframe import KeyframeProperty
 
 from .time_util import Timerange
 from .audio_segment import AudioSegment
-from .video_segment import VideoSegment, StickerSegment, ClipSettings
-from .effect_segment import EffectSegment, FilterSegment
+from .video_segment import VideoSegment, StickerSegment, ClipSettings, SmartColorAdjust
+from .effect_segment import EffectSegment, FilterSegment, AdjustSegment, AdjustPlaceholder
 from .text_segment import TextSegment, TextStyle, TextStyleRange, TextBorder, TextBackground, TextShadow
 
 from .metadata import FontType
@@ -214,8 +214,11 @@ __all__ = [
     "VideoSegment",
     "StickerSegment",
     "ClipSettings",
+    "SmartColorAdjust",
     "EffectSegment",
     "FilterSegment",
+    "AdjustSegment",
+    "AdjustPlaceholder",
     "TextSegment",
     "TextStyle",
     "TextStyleRange",

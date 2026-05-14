@@ -202,6 +202,60 @@ class Filter:
             # 不导出path和request_id
         }
 
+class SmartColorAdjust:
+    """智能调色素材"""
+
+    DEFAULT_NAME = "智能调色"
+    DEFAULT_EFFECT_ID = "8991353"
+    DEFAULT_RESOURCE_ID = "7189266147215151671"
+
+    global_id: str
+    """智能调色全局id, 由程序自动生成"""
+    value: float
+    """智能调色强度, 保持剪映草稿中的原始0-1浮点值"""
+
+    apply_target_type: Literal[0, 2]
+    """应用目标类型, 0: 片段, 2: 全局"""
+
+    def __init__(self, value: float, *,
+                 apply_target_type: Literal[0, 2] = 0):
+        self.global_id = uuid.uuid4().hex
+        self.value = value
+        self.apply_target_type = apply_target_type
+
+    def export_json(self) -> Dict[str, Any]:
+        return {
+            "adjust_params": [],
+            "algorithm_artifact_path": "",
+            "apply_target_type": self.apply_target_type,
+            "bloom_params": None,
+            "category_id": "",
+            "category_name": "",
+            "color_match_info": {
+                "source_feature_path": "",
+                "target_feature_path": "",
+                "target_image_path": ""
+            },
+            "effect_id": self.DEFAULT_EFFECT_ID,
+            "enable_skin_tone_correction": False,
+            "exclusion_group": [],
+            "face_adjust_params": [],
+            "formula_id": "",
+            "id": self.global_id,
+            "intensity_key": "",
+            "multi_language_current": "",
+            "name": self.DEFAULT_NAME,
+            "panel_id": "",
+            "platform": "all",
+            "resource_id": self.DEFAULT_RESOURCE_ID,
+            "source_platform": 0,
+            "sub_type": "none",
+            "time_range": None,
+            "type": "smart_color_adjust",
+            "value": self.value,
+            "version": ""
+        }
+
 class Transition:
     """转场对象"""
 
@@ -357,6 +411,12 @@ class VideoSegment(VisualSegment):
     在放入轨道时自动添加到素材列表中
     """
 
+    smart_color_adjust: Optional[SmartColorAdjust]
+    """智能调色实例, 可能为空
+
+    在放入轨道时自动添加到素材列表中
+    """
+
     def __init__(self, material: Union[VideoMaterial, str], target_timerange: Timerange, *,
                  source_timerange: Optional[Timerange] = None, speed: Optional[float] = None, volume: float = 1.0,
                  change_pitch: bool = False, clip_settings: Optional[ClipSettings] = None):
@@ -400,6 +460,7 @@ class VideoSegment(VisualSegment):
         self.mask = None
         self.background_filling = None
         self.fade = None
+        self.smart_color_adjust = None
 
     def add_animation(self, animation_type: Union[IntroType, OutroType, GroupAnimationType],
                       duration: Optional[Union[int, str]] = None) -> "VideoSegment":
@@ -485,6 +546,15 @@ class VideoSegment(VisualSegment):
         self.filters.append(filter_inst)
         self.extra_material_refs.append(filter_inst.global_id)
 
+        return self
+
+    def add_smart_color_adjust(self, value: float) -> "VideoSegment":
+        """为视频片段启用智能调色"""
+        if self.smart_color_adjust is not None:
+            raise ValueError("当前片段已存在智能调色, 不能重复添加")
+
+        self.smart_color_adjust = SmartColorAdjust(value)
+        self.extra_material_refs.append(self.smart_color_adjust.global_id)
         return self
 
     def set_mix_mode(self, mode: MixModeType) -> "VideoSegment":
@@ -584,6 +654,8 @@ class VideoSegment(VisualSegment):
         json_dict.update({
             "hdr_settings": {"intensity": 1.0, "mode": 1, "nits": 1000},
         })
+        if self.smart_color_adjust is not None:
+            json_dict["enable_smart_color_adjust"] = True
         return json_dict
 
 class StickerSegment(VisualSegment):
