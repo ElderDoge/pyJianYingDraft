@@ -453,7 +453,14 @@ class ScriptFile:
     def add_smart_color_adjust(self, value: float, t_range: Timerange,
                                track_name: Optional[str] = None,
                                placeholder_name: str = "调节1") -> "ScriptFile":
-        """向调节轨中添加一个智能调色片段"""
+        """向调节轨中添加一个智能调色片段
+
+        Args:
+            value (`float`): 智能调色强度(0-100)
+            t_range (`Timerange`): 调节片段的时间范围
+            track_name (`str`, optional): 调节轨名称
+            placeholder_name (`str`, optional): 占位素材名称
+        """
         if track_name is None:
             adjust_tracks = [track for track in self.tracks.values() if track.track_type == TrackType.adjust]
             if len(adjust_tracks) == 0:
@@ -469,7 +476,7 @@ class ScriptFile:
             raise TypeError(f"名为 '{track_name}' 的轨道不是调节轨")
 
         placeholder = AdjustPlaceholder(placeholder_name)
-        smart_color_adjust = SmartColorAdjust(value)
+        smart_color_adjust = SmartColorAdjust(SmartColorAdjust.normalize_intensity(value))
         segment = AdjustSegment(placeholder, smart_color_adjust, t_range)
         return self.add_segment(segment, track_name)
 

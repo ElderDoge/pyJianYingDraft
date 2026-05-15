@@ -223,6 +223,11 @@ class SmartColorAdjust:
         self.value = value
         self.apply_target_type = apply_target_type
 
+    @staticmethod
+    def normalize_intensity(value: float) -> float:
+        """将对外0-100的强度转换为草稿所需的0-1原始值"""
+        return value / 100.0
+
     def export_json(self) -> Dict[str, Any]:
         return {
             "adjust_params": [],
@@ -549,11 +554,15 @@ class VideoSegment(VisualSegment):
         return self
 
     def add_smart_color_adjust(self, value: float) -> "VideoSegment":
-        """为视频片段启用智能调色"""
+        """为视频片段启用智能调色
+
+        Args:
+            value (`float`): 智能调色强度(0-100)
+        """
         if self.smart_color_adjust is not None:
             raise ValueError("当前片段已存在智能调色, 不能重复添加")
 
-        self.smart_color_adjust = SmartColorAdjust(value)
+        self.smart_color_adjust = SmartColorAdjust(SmartColorAdjust.normalize_intensity(value))
         self.extra_material_refs.append(self.smart_color_adjust.global_id)
         return self
 

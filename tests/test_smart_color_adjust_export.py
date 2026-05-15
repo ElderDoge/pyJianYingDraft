@@ -41,7 +41,7 @@ def test_segment_level_smart_color_adjust_exports_effect_and_segment_refs():
     script.add_track(TrackType.video)
 
     segment = VideoSegment(_fake_video_material(), Timerange(0, 8_133_333))
-    segment.add_smart_color_adjust(0.8)
+    segment.add_smart_color_adjust(80)
     script.add_segment(segment)
 
     draft_json = _dump(script)
@@ -76,7 +76,7 @@ def test_segment_level_smart_color_adjust_coexists_with_filter_and_video_effect(
     script.add_track(TrackType.video)
 
     segment = VideoSegment(_fake_video_material(), Timerange(0, 8_133_333))
-    segment.add_smart_color_adjust(0.37645232371794873)
+    segment.add_smart_color_adjust(37.64523237179487)
     segment.add_filter(FilterType.原生肤, 10)
     segment.add_effect(VideoSceneEffectType.胶片闪切, [50, None, 80])
     script.add_segment(segment)
@@ -96,7 +96,7 @@ def test_track_level_smart_color_adjust_exports_placeholder_adjust_track_and_ref
 
     normal_segment = VideoSegment(_fake_video_material("plain.mp4"), Timerange(0, 5_000_000))
     script.add_segment(normal_segment)
-    script.add_smart_color_adjust(0.2835536858974359, Timerange(0, 16_066_666))
+    script.add_smart_color_adjust(28.35536858974359, Timerange(0, 16_066_666))
 
     draft_json = _dump(script)
 
