@@ -509,6 +509,8 @@ class TextSegment(VisualSegment):
         if self.shadow or any(style_range.shadow for style_range in self.style_ranges):
             check_flag |= 32
 
+        utf16_boundaries = self._build_utf16_boundaries()
+
         def __style_json(start: int, end: int, *, style: TextStyle, font: Optional[EffectMeta],
                          border: Optional[TextBorder], shadow: Optional[TextShadow],
                          effect: Optional[TextEffect]) -> Dict[str, Any]:
@@ -523,7 +525,7 @@ class TextSegment(VisualSegment):
                         }
                     }
                 },
-                "range": [start, end],
+                "range": [utf16_boundaries[start], utf16_boundaries[end]],
                 "size": style.size,
                 "bold": style.bold,
                 "italic": style.italic,
@@ -600,3 +602,11 @@ class TextSegment(VisualSegment):
             ret.update(self.background.export_json())
 
         return ret
+
+    def _build_utf16_boundaries(self) -> List[int]:
+        boundaries = [0]
+        total = 0
+        for char in self.text:
+            total += len(char.encode("utf-16-le")) // 2
+            boundaries.append(total)
+        return boundaries

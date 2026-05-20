@@ -168,3 +168,25 @@ def test_import_srt_without_resolver_keeps_single_default_style(tmp_path):
     styles = _script_text_content(script)["styles"]
 
     assert [style["range"] for style in styles] == [[0, 4]]
+
+
+def test_exports_style_ranges_with_utf16_boundaries_for_emoji_positions():
+    segment = TextSegment("A😋中🌈尾", Timerange(0, 1000000), style=TextStyle(size=6.0))
+    segment.add_style_range(0, 2, style=TextStyle(size=9.0))
+    segment.add_style_range(2, 4, style=TextStyle(size=11.0))
+
+    styles = _content(segment)["styles"]
+
+    assert [style["range"] for style in styles] == [[0, 3], [3, 6], [6, 7]]
+    assert [style["size"] for style in styles] == [9.0, 11.0, 6.0]
+
+
+def test_exports_full_emoji_grapheme_range_with_utf16_boundaries():
+    segment = TextSegment("烦躁无聊😮‍💨", Timerange(0, 1000000), style=TextStyle(size=6.0))
+    segment.add_style_range(0, len(segment.text), style=TextStyle(size=12.0, bold=True))
+
+    styles = _content(segment)["styles"]
+
+    assert [style["range"] for style in styles] == [[0, 9]]
+    assert styles[0]["size"] == 12.0
+    assert styles[0]["bold"] is True
